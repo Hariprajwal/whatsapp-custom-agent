@@ -1,6 +1,6 @@
 /**
- * 🦙 Standalone WhatsApp Local AI Chatbot & PC Companion
- * Direct local Ollama chat + PC remote control over WhatsApp with human simulation.
+ * 🦙 Standalone WhatsApp AI Chatbot & PC Companion
+ * Dual-tier AI: Local Ollama (Priority) + OpenRouter Cloud (Fallback)
  */
 
 const { 
@@ -14,10 +14,9 @@ const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { spawn } = require('child_process');
 const config = require('./config');
 
-const AUTH_DIR = path.resolve(__dirname, 'auth_info');
+const AUTH_DIR = path.resolve(__dirname, config.paths.authDir);
 let currentModel = config.ollama.defaultModel;
 
 // In-memory chat history: jid -> array of { role: 'user'|'assistant', content: string }
@@ -55,7 +54,7 @@ async function sendHumanReply(sock, jid, text, originalMsg = null) {
 }
 
 // ==========================================
-// 🦙 OLLAMA AI CLIENT
+// 🦙 DUAL AI ENGINE: OLLAMA + OPENROUTER
 // ==========================================
 async function getInstalledOllamaModels() {
     try {
@@ -68,68 +67,130 @@ async function getInstalledOllamaModels() {
     }
 }
 
-async function queryOllamaChat(jid, userPrompt) {
-    try {
-        // Retrieve / update conversation context
-        let history = conversationHistory.get(jid) || [];
-        history.push({ role: 'user', content: userPrompt });
+async function queryOllamaChat(history) {
+    const messages = [
+        { role: 'system', content: config.ollama.systemPrompt },
+        ...history
+    ];
 
-        // Keep last MAX_HISTORY_TURNS messages
-        if (history.length > MAX_HISTORY_TURNS) {
-            history = history.slice(-MAX_HISTORY_TURNS);
-        }
+    const response = await fetch(`${config.ollama.baseUrl}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            model: currentModel,
+            messages,
+            stream: false,
+            options: {
+                temperature: config.ollama.temperature,
+                num_predict: config.ollama.numPredict
+            }
+        })
+    });
 
-        const messages = [
-            { role: 'system', content: config.ollama.systemPrompt },
-            ...history
-        ];
+    if (!response.ok) throw new Error(`Ollama HTTP ${response.status}`);
+    const data = await response.json();
+    return data.message?.content?.trim() || null;
+}
 
-        const response = await fetch(`${config.ollama.baseUrl}/api/chat`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: currentModel,
-                messages,
-                stream: false,
-                options: {
-                    temperature: config.ollama.temperature,
-                    num_predict: config.ollama.numPredict
-                }
-            })
-        });
+async function queryOpenRouterChat(history) {
+    if (!config.openrouter.apiKey) return null;
 
-        if (!response.ok) {
-            return `⚠️ Ollama API Error: HTTP ${response.status}`;
-        }
+    const messages = [
+        { role: 'system', content: config.ollama.systemPrompt },
+        ...history
+    ];
 
-        const data = await response.json();
-        const reply = data.message?.content?.trim() || '⚠️ (No response from Ollama)';
+    const response = await fetch(config.openrouter.baseUrl, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${config.openrouter.apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': config.openrouter.siteUrl,
+            'X-Title': config.openrouter.siteName
+        },
+        body: JSON.stringify({
+            model: config.openrouter.defaultModel,
+            messages,
+            max_tokens: 350,
+            temperature: config.ollama.temperature
+        })
+    });
 
-        // Store assistant reply in history
-        history.push({ role: 'assistant', content: reply });
-        conversationHistory.set(jid, history);
+    if (!response.ok) throw new Error(`OpenRouter HTTP ${response.status}`);
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content?.trim() || null;
+}
 
-        return reply;
-    } catch (err) {
-        return `⚠️ Could not reach Ollama at ${config.ollama.baseUrl}. Is Ollama running on your PC?`;
+async function queryDualAIChat(jid, userPrompt) {
+    let history = conversationHistory.get(jid) || [];
+    history.push({ role: 'user', content: userPrompt });
+
+    if (history.length > MAX_HISTORY_TURNS) {
+        history = history.slice(-MAX_HISTORY_TURNS);
     }
+
+    let reply = null;
+    let providerTag = '';
+
+    // 1. Try local Ollama
+    try {
+        console.log(`[🦙] Querying local Ollama (${currentModel})...`);
+        const ollamaPromise = queryOllamaChat(history);
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 7000));
+        reply = await Promise.race([ollamaPromise, timeoutPromise]);
+        if (reply) {
+            providerTag = '_(⚡ Local Ollama)_';
+        }
+    } catch (err) {
+        console.log(`[!] Ollama chat failed (${err.message}), falling back to OpenRouter...`);
+    }
+
+    // 2. Fallback to OpenRouter
+    if (!reply && config.openrouter.apiKey) {
+        try {
+            console.log(`[☁️] Querying OpenRouter (${config.openrouter.defaultModel})...`);
+            reply = await queryOpenRouterChat(history);
+            if (reply) {
+                providerTag = '_(☁️ OpenRouter Backup)_';
+            }
+        } catch (err) {
+            console.error('[!] OpenRouter fallback error:', err.message);
+        }
+    }
+
+    if (!reply) {
+        return '⚠️ AI Assistant is temporarily unavailable. (Local Ollama offline and OpenRouter error)';
+    }
+
+    // Update conversation memory with assistant response
+    history.push({ role: 'assistant', content: reply });
+    conversationHistory.set(jid, history);
+
+    return `${reply}\n\n${providerTag}`;
 }
 
 // ==========================================
 // 💻 PC SYSTEM DIAGNOSTICS
 // ==========================================
-function getSystemStatus() {
+async function getSystemStatus() {
     const totalMem = (os.totalmem() / 1024 / 1024 / 1024).toFixed(1);
     const freeMem = (os.freemem() / 1024 / 1024 / 1024).toFixed(1);
     const uptimeHours = (os.uptime() / 3600).toFixed(1);
 
+    let ollamaOnline = false;
+    try {
+        const res = await fetch(`${config.ollama.baseUrl}/api/tags`);
+        ollamaOnline = res.ok;
+    } catch (e) {}
+
     return (
-        `💻 *HOST PC DIAGNOSTICS*\n` +
+        `💻 *HOST PC & AI DIAGNOSTICS*\n` +
         `──────────────────────────\n` +
         `🖥️ *OS:* ${os.type()} (${os.arch()})\n` +
         `⏱️ *Uptime:* ${uptimeHours} hours\n` +
         `🧠 *RAM:* ${freeMem} GB free / ${totalMem} GB total\n` +
-        `🦙 *Active Ollama Model:* ${currentModel}\n` +
+        `🦙 *Local Ollama:* ${ollamaOnline ? `ONLINE ⚡ (${currentModel})` : 'OFFLINE ⚪'}\n` +
+        `☁️ *OpenRouter:* ${config.openrouter.apiKey ? `READY 🟢 (Backup: ${config.openrouter.defaultModel})` : 'NO KEY ⚪'}\n` +
         `──────────────────────────`
     );
 }
@@ -139,11 +200,11 @@ function getSystemStatus() {
 // ==========================================
 async function startStandaloneAIAgent() {
     console.log('\n=============================================================');
-    console.log('       STANDALONE WHATSAPP LOCAL AI CHATBOT AGENT           ');
+    console.log('       STANDALONE WHATSAPP DUAL-TIER AI CHATBOT AGENT        ');
     console.log('=============================================================');
-    console.log(`[i] Ollama Host   : ${config.ollama.baseUrl}`);
-    console.log(`[i] Active Model  : ${currentModel}`);
-    console.log(`[i] Auth Directory: ${AUTH_DIR}\n`);
+    console.log(`[i] Local Ollama      : ${config.ollama.baseUrl} (${currentModel})`);
+    console.log(`[i] OpenRouter Backup : ${config.openrouter.apiKey ? 'Enabled ✅ (' + config.openrouter.defaultModel + ')' : 'No API Key ❌'}`);
+    console.log(`[i] Auth Directory    : ${AUTH_DIR}\n`);
 
     if (!fs.existsSync(AUTH_DIR)) {
         fs.mkdirSync(AUTH_DIR, { recursive: true });
@@ -175,7 +236,8 @@ async function startStandaloneAIAgent() {
         if (connection === 'open') {
             console.log('\n=============================================================');
             console.log(' [✓] STANDALONE AI AGENT CONNECTED!');
-            console.log(` [✓] Model: ${currentModel}`);
+            console.log(` [✓] Primary AI: Ollama (${currentModel})`);
+            console.log(` [✓] Backup AI : OpenRouter (${config.openrouter.defaultModel})`);
             console.log(' [✓] Send "!help" in WhatsApp to see available commands.');
             console.log('=============================================================\n');
         }
@@ -214,7 +276,6 @@ async function startStandaloneAIAgent() {
             const sender = msg.pushName || 'User';
             const lower = text.toLowerCase();
 
-            // Direct message OR group mention / !ai command
             const isCommand = text.startsWith('!');
             const isAiPrefix = lower.startsWith('ai ') || lower.startsWith('ai:');
             const shouldRespond = !isGroup || isCommand || isAiPrefix;
@@ -223,27 +284,25 @@ async function startStandaloneAIAgent() {
 
             console.log(`[💬] [${new Date().toLocaleTimeString()}] ${sender}: "${text}"`);
 
-            // --- COMMANDS ---
-
             // !help
             if (lower === '!help') {
                 const helpMsg = 
-                    `🤖 *STANDALONE LOCAL AI COMMANDS*\n` +
+                    `🤖 *STANDALONE DUAL AI COMMANDS*\n` +
                     `──────────────────────────\n` +
-                    `💬 *Chatting:* Just type your question!\n` +
+                    `💬 *Chatting:* Type any question (multi-turn memory!)\n` +
                     `🦙 *!model <name>* -> Switch local Ollama model\n` +
                     `📋 *!models* -> List all installed models on PC\n` +
-                    `💻 *!status* -> Show PC RAM, CPU & host health\n` +
+                    `💻 *!status* -> Show PC RAM, CPU & AI status\n` +
                     `🧹 *!clear* -> Reset conversation memory\n` +
                     `──────────────────────────\n` +
-                    `Powered by your local PC (0 API cost & 100% private)`;
+                    `⚡ Primary: Local Ollama | ☁️ Backup: OpenRouter`;
                 await sendHumanReply(sock, jid, helpMsg, msg);
                 continue;
             }
 
             // !status
             if (lower === '!status') {
-                const statusMsg = getSystemStatus();
+                const statusMsg = await getSystemStatus();
                 await sendHumanReply(sock, jid, statusMsg, msg);
                 continue;
             }
@@ -253,7 +312,7 @@ async function startStandaloneAIAgent() {
                 const models = await getInstalledOllamaModels();
                 let reply = `🦙 *INSTALLED OLLAMA MODELS (${models.length}):*\n`;
                 if (models.length === 0) {
-                    reply += `⚠️ No models found or Ollama is offline.`;
+                    reply += `⚠️ No models found or Ollama is offline. OpenRouter backup active.`;
                 } else {
                     reply += models.map(m => `• ${m === currentModel ? `👉 *${m}* (Active)` : m}`).join('\n');
                     reply += `\n\n💡 Tip: Send *!model <name>* to switch models!`;
@@ -282,13 +341,13 @@ async function startStandaloneAIAgent() {
                 continue;
             }
 
-            // --- AI CHAT QUERY ---
+            // AI CHAT QUERY
             let cleanPrompt = text;
             if (cleanPrompt.startsWith('!ai ')) cleanPrompt = cleanPrompt.substring(4).trim();
             else if (cleanPrompt.toLowerCase().startsWith('ai:')) cleanPrompt = cleanPrompt.substring(3).trim();
             else if (cleanPrompt.toLowerCase().startsWith('ai ')) cleanPrompt = cleanPrompt.substring(3).trim();
 
-            const answer = await queryOllamaChat(jid, cleanPrompt);
+            const answer = await queryDualAIChat(jid, cleanPrompt);
             await sendHumanReply(sock, jid, answer, msg);
         }
     });

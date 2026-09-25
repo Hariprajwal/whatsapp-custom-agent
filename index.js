@@ -9,25 +9,18 @@ const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const config = require('./config');
 
 // Paths
 const ROOT_DIR = path.resolve(__dirname, '..');
-const LINK_FILE_PATH = path.join(ROOT_DIR, 'link.txt');
-const AUTH_DIR = path.resolve(__dirname, 'auth_info');
-// Target Group Keywords (matches "movie", "movide", "movies", etc.)
-const TARGET_GROUP_KEYWORDS = ['movie', 'movide', 'movies'];
-
-// Ollama Settings
-const OLLAMA_BASE_URL = 'http://localhost:11434';
-const OLLAMA_MODEL = 'llama3.2:1b';
+const LINK_FILE_PATH = path.resolve(__dirname, config.paths.linkFile);
+const AUTH_DIR = path.resolve(__dirname, config.paths.authDir);
 
 // In-memory group cache (jid -> subject)
 const groupCache = new Map();
 
 // Helper: Sleep / delay
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Helper: Random jitter delay
 const randomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 // ==========================================
@@ -35,26 +28,22 @@ const randomDelay = (min, max) => Math.floor(Math.random() * (max - min + 1)) + 
 // ==========================================
 async function sendHumanReply(sock, jid, text, originalMsg = null) {
     try {
-        // 1. Mark the incoming message as read
         if (originalMsg?.key) {
             await sock.readMessages([originalMsg.key]).catch(() => {});
         }
 
-        // 2. Realistic "thinking" pause before typing (400ms - 900ms)
-        await sleep(randomDelay(400, 900));
-
-        // 3. Show "typing..." presence indicator
+        await sleep(randomDelay(config.safety.markAsReadDelayMinMs, config.safety.markAsReadDelayMaxMs));
         await sock.sendPresenceUpdate('composing', jid).catch(() => {});
 
-        // 4. Calculate realistic typing duration based on response length
-        const typingTime = Math.min(3500, Math.max(1200, text.length * 20 + randomDelay(300, 700)));
+        const typingTime = Math.min(
+            config.safety.maxTypingDelayMs, 
+            Math.max(config.safety.minTypingDelayMs, text.length * 20 + randomDelay(300, 700))
+        );
         await sleep(typingTime);
 
-        // 5. Pause composing
         await sock.sendPresenceUpdate('paused', jid).catch(() => {});
 
-        // 6. Send the message (quote original if provided)
-        const sendOptions = originalMsg ? { quoted: originalMsg } : {};
+        const sendOptions = (config.safety.quoteOriginalMessage && originalMsg) ? { quoted: originalMsg } : {};
         await sock.sendMessage(jid, { text }, sendOptions);
         
         console.log(`[✓] Sent reply: "${text.substring(0, 50).replace(/\n/g, ' ')}..."`);
@@ -102,7 +91,6 @@ function cleanAndDeduplicateLinkFile() {
 
         for (const line of lines) {
             if (!line || !line.startsWith('http')) continue;
-            // Ignore JioSphere junk
             if (/jiosphere\.com/i.test(line)) continue;
             
             if (!seen.has(line)) {
@@ -180,7 +168,6 @@ function launchTenorAgent() {
         }
 
         try {
-            // Launch in a new, independent Windows console window
             const child = spawn('cmd.exe', ['/c', 'start', 'Tenor Agent', 'cmd', '/k', 'python tenor_agent.py'], {
                 cwd: ROOT_DIR,
                 detached: true,
@@ -203,7 +190,7 @@ function stopTenorAgent() {
             'Get-CimInstance Win32_Process | Where-Object CommandLine -like "*tenor_agent.py*" | Stop-Process -Force'
         ]);
 
-        ps.on('close', (code) => {
+        ps.on('close', () => {
             resolve({ success: true, message: '🛑 Tenor Agent process has been stopped on your PC.' });
         });
         ps.on('error', (err) => {
@@ -213,46 +200,101 @@ function stopTenorAgent() {
 }
 
 // ==========================================
-// 🦙 OLLAMA AI QUERY HANDLER
+// 🦙 DUAL AI ENGINE: OLLAMA + OPENROUTER BACKUP
 // ==========================================
 async function queryOllama(prompt) {
     try {
-        const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+        const res = await fetch(`${config.ollama.baseUrl}/api/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: OLLAMA_MODEL,
-                prompt: `You are a helpful, concise AI assistant in a WhatsApp group called MOVIDE. Answer the user prompt directly and concisely.\n\nUser: ${prompt}\n\nAssistant:`,
+                model: config.ollama.defaultModel,
+                prompt: `You are a helpful, concise AI assistant in a WhatsApp group called movie. Answer concisely.\n\nUser: ${prompt}\n\nAssistant:`,
                 stream: false,
                 options: {
-                    temperature: 0.7,
-                    num_predict: 250
+                    temperature: config.ollama.temperature,
+                    num_predict: config.ollama.numPredict
                 }
             })
         });
 
-        if (!response.ok) {
-            return `⚠️ Ollama returned error: HTTP ${response.status}`;
-        }
-
-        const data = await response.json();
-        return data.response?.trim() || '⚠️ (Empty response from Ollama)';
-    } catch (err) {
-        return `⚠️ Could not reach Ollama at ${OLLAMA_BASE_URL}. Ensure Ollama is running! (${err.message})`;
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.response?.trim() || null;
+    } catch (e) {
+        return null;
     }
 }
 
-async function checkOllamaStatus() {
+async function queryOpenRouter(prompt) {
+    if (!config.openrouter.apiKey) return null;
     try {
-        const res = await fetch(`${OLLAMA_BASE_URL}/api/tags`);
-        if (res.ok) {
-            const data = await res.json();
-            const models = (data.models || []).map(m => m.name);
-            const hasModel = models.includes(OLLAMA_MODEL);
-            return { online: true, activeModel: OLLAMA_MODEL, modelFound: hasModel };
+        const res = await fetch(config.openrouter.baseUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${config.openrouter.apiKey}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': config.openrouter.siteUrl,
+                'X-Title': config.openrouter.siteName
+            },
+            body: JSON.stringify({
+                model: config.openrouter.defaultModel,
+                messages: [
+                    { role: 'system', content: 'You are a helpful, concise AI assistant in a WhatsApp group called movie. Answer concisely.' },
+                    { role: 'user', content: prompt }
+                ],
+                max_tokens: 300,
+                temperature: 0.7
+            })
+        });
+
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.choices?.[0]?.message?.content?.trim() || null;
+    } catch (e) {
+        console.error('[!] OpenRouter fallback error:', e.message);
+        return null;
+    }
+}
+
+async function queryAIWithFallback(prompt) {
+    // 1. Try local Ollama first (Priority: 100% Free & Local)
+    try {
+        console.log(`[🦙] Querying local Ollama (${config.ollama.defaultModel})...`);
+        const ollamaPromise = queryOllama(prompt);
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 7000));
+        const ollamaRes = await Promise.race([ollamaPromise, timeoutPromise]);
+        
+        if (ollamaRes) {
+            return `${ollamaRes}\n\n_(⚡ Local Ollama)_`;
         }
+    } catch (err) {
+        console.log(`[!] Ollama unreachable, switching to OpenRouter backup...`);
+    }
+
+    // 2. Fallback to OpenRouter Cloud API
+    if (config.openrouter.apiKey) {
+        console.log(`[☁️] Querying OpenRouter Cloud Backup (${config.openrouter.defaultModel})...`);
+        const orRes = await queryOpenRouter(prompt);
+        if (orRes) {
+            return `${orRes}\n\n_(☁️ OpenRouter Backup)_`;
+        }
+    }
+
+    return '⚠️ AI Assistant is currently offline. Please ensure local Ollama is running or OpenRouter key is set.';
+}
+
+async function checkAIStatus() {
+    let ollamaOnline = false;
+    try {
+        const res = await fetch(`${config.ollama.baseUrl}/api/tags`);
+        ollamaOnline = res.ok;
     } catch (e) {}
-    return { online: false, activeModel: OLLAMA_MODEL, modelFound: false };
+
+    return {
+        ollama: { online: ollamaOnline, model: config.ollama.defaultModel },
+        openRouter: { configured: Boolean(config.openrouter.apiKey), model: config.openrouter.defaultModel }
+    };
 }
 
 // ==========================================
@@ -262,9 +304,10 @@ async function startWhatsAppSync() {
     console.log('\n=============================================================');
     console.log('       WHATSAPP AI ASSISTANT & SYNC AGENT STARTING...        ');
     console.log('=============================================================');
-    console.log(`[i] Target File  : ${LINK_FILE_PATH}`);
-    console.log(`[i] Target Group : "${TARGET_GROUP_KEYWORDS.join(' / ').toUpperCase()}" (case-insensitive)`);
-    console.log(`[i] Local Ollama : ${OLLAMA_BASE_URL} (${OLLAMA_MODEL})\n`);
+    console.log(`[i] Target File       : ${LINK_FILE_PATH}`);
+    console.log(`[i] Target Keyword(s) : "${config.targetGroupKeywords.join(' / ').toUpperCase()}"`);
+    console.log(`[i] Local Ollama      : ${config.ollama.baseUrl} (${config.ollama.defaultModel})`);
+    console.log(`[i] OpenRouter Backup : ${config.openrouter.apiKey ? 'Enabled ✅ (' + config.openrouter.defaultModel + ')' : 'No API Key ❌'}\n`);
 
     if (!fs.existsSync(AUTH_DIR)) {
         fs.mkdirSync(AUTH_DIR, { recursive: true });
@@ -278,7 +321,7 @@ async function startWhatsAppSync() {
         auth: state,
         logger: pino({ level: 'silent' }),
         printQRInTerminal: false,
-        browser: ['Chrome (Windows)', 'Desktop', '124.0.0.0'], // Realistic browser signature
+        browser: config.safety.browserSignature,
         syncFullHistory: false
     });
 
@@ -301,8 +344,8 @@ async function startWhatsAppSync() {
         if (connection === 'open') {
             console.log('\n=============================================================');
             console.log(' [✓] WHATSAPP AI AGENT CONNECTED SUCCESSFULLY!');
-            console.log(` [✓] Monitored Group(s): "${TARGET_GROUP_KEYWORDS.join(' / ').toUpperCase()}"`);
-            console.log(' [✓] Human Simulation: Enabled (Mark Read + Typing Presence)');
+            console.log(` [✓] Monitored Group(s): "${config.targetGroupKeywords.join(' / ').toUpperCase()}"`);
+            console.log(' [✓] Dual AI: Local Ollama + OpenRouter Backup Active');
             console.log(' [✓] Ready to receive links, commands (!status, !launch), & AI prompts!');
             console.log('=============================================================\n');
         }
@@ -324,19 +367,15 @@ async function startWhatsAppSync() {
         }
     });
 
-    // Message handler
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
         if (type !== 'notify') return;
 
         for (const msg of messages) {
-            if (!msg.message) continue;
-            // Ignore messages sent by this bot itself to avoid loops
-            if (msg.key.fromMe) continue;
+            if (!msg.message || msg.key.fromMe) continue;
 
             const jid = msg.key.remoteJid;
-            if (!jid || !jid.endsWith('@g.us')) continue; // Group messages only
+            if (!jid || !jid.endsWith('@g.us')) continue; // Group messages
 
-            // Check group name
             let groupName = groupCache.get(jid);
             if (!groupName) {
                 try {
@@ -348,7 +387,7 @@ async function startWhatsAppSync() {
                 }
             }
 
-            const matchesGroup = TARGET_GROUP_KEYWORDS.some(kw => groupName.toLowerCase().includes(kw));
+            const matchesGroup = config.targetGroupKeywords.some(kw => groupName.toLowerCase().includes(kw));
             if (!groupName || !matchesGroup) {
                 continue;
             }
@@ -359,9 +398,7 @@ async function startWhatsAppSync() {
             const sender = msg.pushName || 'Friend';
             console.log(`\n[📩] [${new Date().toLocaleTimeString()}] Group: "${groupName}" | ${sender}: "${text}"`);
 
-            // ==========================================
             // 1. LINK DETECTION & SAVING
-            // ==========================================
             const urls = extractCleanUrls(text);
             if (urls.length > 0) {
                 const existing = new Set(getValidLinks());
@@ -387,23 +424,22 @@ async function startWhatsAppSync() {
                 continue;
             }
 
-            // ==========================================
-            // 2. REMOTE BOT COMMANDS
-            // ==========================================
+            // 2. COMMANDS
             const lower = text.toLowerCase();
 
-            // Command: !status
+            // !status
             if (lower === '!status' || lower === 'status') {
                 const isRunning = await isTenorAgentRunning();
                 const linkCount = getValidLinks().length;
-                const ollamaInfo = await checkOllamaStatus();
+                const aiInfo = await checkAIStatus();
 
                 const statusText = 
                     `📊 *SYSTEM STATUS REPORT*\n` +
                     `──────────────────────────\n` +
                     `🤖 *Tenor Agent:* ${isRunning ? 'RUNNING 🟢' : 'IDLE / STOPPED ⚪'}\n` +
                     `📋 *Queue Size:* ${linkCount} links waiting in link.txt\n` +
-                    `🦙 *Ollama AI:* ${ollamaInfo.online ? `ONLINE ⚡ (${ollamaInfo.activeModel})` : 'OFFLINE ❌'}\n` +
+                    `🦙 *Local Ollama:* ${aiInfo.ollama.online ? `ONLINE ⚡ (${aiInfo.ollama.model})` : 'OFFLINE ⚪'}\n` +
+                    `☁️ *OpenRouter:* ${aiInfo.openRouter.configured ? `READY 🟢 (Backup active)` : 'NO KEY ⚪'}\n` +
                     `💻 *Host Machine:* Windows PC (Active)\n` +
                     `──────────────────────────\n` +
                     `💡 Tip: Send *!launch* to start or *!clean* to tidy links.`;
@@ -412,21 +448,21 @@ async function startWhatsAppSync() {
                 continue;
             }
 
-            // Command: !launch or !start
+            // !launch / !start
             if (lower === '!launch' || lower === '!start' || lower === 'start bot') {
                 const result = await launchTenorAgent();
                 await sendHumanReply(sock, jid, result.message, msg);
                 continue;
             }
 
-            // Command: !stop
+            // !stop
             if (lower === '!stop' || lower === 'stop bot') {
                 const result = await stopTenorAgent();
                 await sendHumanReply(sock, jid, result.message, msg);
                 continue;
             }
 
-            // Command: !clean
+            // !clean
             if (lower === '!clean' || lower === 'clean links') {
                 const cleanResult = cleanAndDeduplicateLinkFile();
                 if (cleanResult) {
@@ -441,34 +477,31 @@ async function startWhatsAppSync() {
                 continue;
             }
 
-            // Command: !help or !commands
+            // !help
             if (lower === '!help' || lower === 'help' || lower === '!commands') {
                 const helpText = 
-                    `🤖 *MOVIDE ASSISTANT COMMANDS*\n` +
+                    `🤖 *MOVIE ASSISTANT COMMANDS*\n` +
                     `──────────────────────────\n` +
                     `🔗 *Paste any Link* -> Auto-saved to link.txt\n` +
                     `📊 *!status* -> Check agent state & queue count\n` +
                     `🚀 *!launch* -> Launch Tenor Agent on PC\n` +
                     `🛑 *!stop* -> Stop Tenor Agent\n` +
                     `🧹 *!clean* -> Deduplicate & tidy link.txt\n` +
-                    `🦙 *!ai <prompt>* -> Ask local Ollama AI\n` +
+                    `🤖 *!ai <prompt>* -> Ask AI (Ollama + OpenRouter fallback)\n` +
                     `──────────────────────────`;
                 await sendHumanReply(sock, jid, helpText, msg);
                 continue;
             }
 
-            // ==========================================
-            // 3. OLLAMA AI CHATBOT (!ai <prompt> or ai: <prompt>)
-            // ==========================================
+            // 3. AI CHATBOT (!ai <prompt> or ai: <prompt>)
             if (lower.startsWith('!ai ') || lower.startsWith('ai ') || lower.startsWith('ai:')) {
                 const prompt = text.replace(/^(!ai\s+|ai\s+|ai:\s*)/i, '').trim();
                 if (!prompt) {
-                    await sendHumanReply(sock, jid, '❓ Please write a question after !ai (e.g. *!ai give me movie ideas*)', msg);
+                    await sendHumanReply(sock, jid, '❓ Please write a question after !ai (e.g. *!ai suggest 5 action movies*)', msg);
                     continue;
                 }
 
-                console.log(`[🦙] Querying Ollama: "${prompt}"`);
-                const answer = await queryOllama(prompt);
+                const answer = await queryAIWithFallback(prompt);
                 await sendHumanReply(sock, jid, answer, msg);
                 continue;
             }
@@ -476,7 +509,6 @@ async function startWhatsAppSync() {
     });
 }
 
-// Start bot
 startWhatsAppSync().catch(err => {
     console.error('[FATAL] WhatsApp Sync failed to start:', err);
 });

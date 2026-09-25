@@ -17,7 +17,7 @@ It functions as both a **smart two-way WhatsApp AI chatbot** and a **remote cont
 
 ## 🌟 Core Highlights
 
-* 🧠 **100% Local AI (Ollama):** Chat directly with your local LLMs inside WhatsApp without OpenAI/Cloud API keys, monthly subscriptions, or data tracking.
+* 🧠 **Dual-Tier AI Engine (Ollama + OpenRouter):** Prioritizes 100% free, private local LLMs (`llama3.2`, `qwen2.5`) via Ollama. Automatically falls back to OpenRouter cloud models (`openrouter/free`) if local Ollama is offline or sleeping, guaranteeing 100% uptime!
 * 🛡️ **Human Emulation Engine:** Solves common ban issues with natural typing indicators (`composing`), randomized typing latency, read receipts (`readMessages`), and Chrome desktop signatures.
 * 🖥️ **PC Remote Control:** Execute, monitor, and stop background automation scripts (`tenor_agent.py`, tasks, batch scripts) straight from your phone.
 * 🔗 **Smart Link Harvester & Sanitizer:** Intercepts URLs in real-time, strips tracking/JioSphere junk, deduplicates against queues (`link.txt`), and replies with queue diagnostics.
