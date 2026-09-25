@@ -1,0 +1,28 @@
+{
+  "name": "whatsapp-custom-agent",
+  "version": "1.0.0",
+  "description": "Local-first WhatsApp AI Agent and Remote PC Control Bridge powered by Baileys & Ollama",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "sync": "node index.js",
+    "chat": "node standalone_chat.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "baileys",
+    "ollama",
+    "ai-agent",
+    "automation",
+    "local-ai",
+    "chatbot"
+  ],
+  "author": "Hariprajwal",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "pino": "^10.3.1",
+    "qrcode-terminal": "^0.12.0"
+  }
+}

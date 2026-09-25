@@ -1,0 +1,17 @@
+# WhatsApp Authentication & Keys (NEVER COMMIT)
+auth_info/
+baileys_auth_info/
+*.session
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment & Logs
+.env
+*.env
+*.log
+
+# OS Metadata
+.DS_Store
+Thumbs.db
