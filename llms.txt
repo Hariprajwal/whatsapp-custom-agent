@@ -1,0 +1,23 @@
+# WhatsApp Custom Agent & Local AI Gateway
+
+> A lightweight, local-first WhatsApp automation agent and dual-tier AI bridge connecting WhatsApp Web to local Ollama LLMs and OpenRouter cloud with built-in human anti-ban emulation.
+
+## Key Capabilities
+- **Local AI Chat:** Direct integration with Ollama (`llama3.2`, `qwen2.5`, `phi3.5`) running locally on port 11434. Zero cloud API cost, 100% private.
+- **Failover Cloud Backup:** Instant fallback to OpenRouter API (`openrouter/free`) whenever local Ollama is offline or sleeping.
+- **Remote Desktop Controller:** Execute, monitor, and terminate Windows automation processes via WhatsApp text commands (`!status`, `!launch`, `!stop`, `!clean`).
+- **Smart Link Harvester:** Extracts URLs from WhatsApp group chats, cleans tracking and deeplink junk (e.g. JioSphere), and appends to disk queues (`link.txt`).
+- **Human Emulation Engine:** Realistic typing presence (`composing`), dynamic WPM jitter delays, and read receipts (`readMessages`) to mitigate bot detection.
+- **Protocol:** Uses `@whiskeysockets/baileys` directly over WebSockets (~25MB RAM, zero browser overhead).
+
+## Main Components
+- [Main Automation Daemon](index.js): Complete link queue manager, process controller, and WhatsApp listener.
+- [Standalone Conversational AI](standalone_chat.js): Multi-turn conversational chatbot with dynamic model switching.
+- [Centralized Configuration](config.js): Auto-loads environment variables, manages Ollama endpoints, OpenRouter credentials, and safety timing.
+- [Architecture Guide](AGENTS.md): Detailed specifications for AI coding agents and automated crawlers.
+- [Legal & Privacy Disclaimer](DISCLAIMER.md): Terms of Service compliance, local-first privacy statement, and responsible AI usage.
+
+## Technical Requirements
+- Node.js >= 18.0.0
+- Ollama running locally (optional, fallback to OpenRouter supported)
+- Windows 10/11 (for process controller features)

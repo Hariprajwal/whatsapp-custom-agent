@@ -1,28 +1,52 @@
-# ⚡ WhatsApp Custom Agent & Local AI Companion
+# ⚡ WhatsApp AI Agent & Local LLM Gateway (Baileys + Ollama + OpenRouter)
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Platform-WhatsApp%20Web%20Multi--Device-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" alt="WhatsApp" />
-  <img src="https://img.shields.io/badge/AI%20Engine-Ollama%20Local-black?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama" />
-  <img src="https://img.shields.io/badge/Node.js-v18%2B-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node" />
-  <img src="https://img.shields.io/badge/Protocol-%40whiskeysockets%2Fbaileys-blue?style=for-the-badge" alt="Baileys" />
-  <img src="https://img.shields.io/badge/Privacy-100%25%20Local%20First-green?style=for-the-badge" alt="Privacy" />
-  <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/badge/Platform-WhatsApp%20Web%20Multi--Device-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" alt="WhatsApp Web Bot" />
+  <img src="https://img.shields.io/badge/Local%20LLM-Ollama%20(Llama%203.2%20%7C%20Qwen%202.5)-black?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama WhatsApp" />
+  <img src="https://img.shields.io/badge/Cloud%20Fallback-OpenRouter%20API-6366F1?style=for-the-badge&logo=openai&logoColor=white" alt="OpenRouter WhatsApp" />
+  <img src="https://img.shields.io/badge/Protocol-%40whiskeysockets%2Fbaileys-blue?style=for-the-badge" alt="Baileys WhatsApp Bot" />
+  <img src="https://img.shields.io/badge/Anti--Ban-Human%20Emulation%20Engine-brightgreen?style=for-the-badge" alt="Anti Ban WhatsApp Bot" />
+  <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="MIT License" />
 </p>
 
-An autonomous, local-first WhatsApp agent that connects **WhatsApp**, your **local PC system**, and **local Ollama LLMs** (`llama3.2`, `qwen2.5`, etc.). 
+<p align="center">
+  <strong>The ultimate local-first WhatsApp AI Assistant, Link Queue Harvester, and PC Remote Control Gateway.</strong><br />
+  Connects WhatsApp directly to local Ollama LLMs with automatic OpenRouter cloud failover, zero-browser WebSocket performance (~25MB RAM), and human behavior simulation to mitigate ban heuristics.
+</p>
 
-It functions as both a **smart two-way WhatsApp AI chatbot** and a **remote control bridge** for your desktop automation scripts—complete with a **Human Behavior Emulation Engine** to mitigate ban risks.
+<p align="center">
+  <a href="#-key-features">Key Features</a> •
+  <a href="#-system-architecture">Architecture</a> •
+  <a href="#-solving-baileys--anti-ban-drawbacks">Anti-Ban Engine</a> •
+  <a href="#-command-directory">Commands</a> •
+  <a href="#-quickstart-guide">Quickstart</a> •
+  <a href="#-dual-tier-ai-routing">AI Routing</a> •
+  <a href="#-faq">FAQ</a> •
+  <a href="AGENTS.md">AGENTS.md</a>
+</p>
 
 ---
 
-## 🌟 Core Highlights
+## 📌 Keywords & Topic Tags
+`whatsapp-bot` • `ollama-whatsapp` • `baileys` • `whatsapp-ai-agent` • `local-llm` • `llama3.2` • `qwen2.5` • `openrouter` • `whatsapp-automation` • `pc-remote-control` • `anti-ban` • `multi-device` • `nodejs` • `headless-whatsapp`
 
-* 🧠 **Dual-Tier AI Engine (Ollama + OpenRouter):** Prioritizes 100% free, private local LLMs (`llama3.2`, `qwen2.5`) via Ollama. Automatically falls back to OpenRouter cloud models (`openrouter/free`) if local Ollama is offline or sleeping, guaranteeing 100% uptime!
-* 🛡️ **Human Emulation Engine:** Solves common ban issues with natural typing indicators (`composing`), randomized typing latency, read receipts (`readMessages`), and Chrome desktop signatures.
-* 🖥️ **PC Remote Control:** Execute, monitor, and stop background automation scripts (`tenor_agent.py`, tasks, batch scripts) straight from your phone.
-* 🔗 **Smart Link Harvester & Sanitizer:** Intercepts URLs in real-time, strips tracking/JioSphere junk, deduplicates against queues (`link.txt`), and replies with queue diagnostics.
-* ⚡ **Ultra-Lightweight:** Direct WebSocket communication via `@whiskeysockets/baileys`. Consumes only **~25 MB of RAM** with **zero browser overhead** (no Chromium/Chrome required).
-* 🔄 **Self-Healing Reconnects:** Persistent multi-file authentication (`auth_info/`) with automatic re-handshakes on network drops.
+---
+
+## 🌟 Key Features
+
+* 🧠 **Dual-Tier AI Engine (100% Uptime Guarantee):**
+  * **Primary:** Fast, 100% private inference via local **Ollama** (`llama3.2:1b`, `qwen2.5:3b`, etc.) on port `11434` with zero API cost.
+  * **Secondary / Backup:** Seamless, automatic failover to **OpenRouter Cloud API** (`openrouter/free`) whenever your local LLM is offline, sleeping, or busy.
+* 🛡️ **Human Behavior Emulation Engine (Anti-Ban):**
+  * Emulates realistic human typing presence (`composing`), randomized WPM jitter latency (`1.2s - 3.5s`), and read receipts (`readMessages`) to defeat automated bot detection algorithms.
+* 🖥️ **Remote PC Controller:**
+  * Control Windows processes straight from WhatsApp. Send `!status` to inspect RAM/CPU/queue health, `!launch` to execute background scripts (`tenor_agent.py`), and `!stop` to terminate tasks.
+* 🔗 **Smart Link Harvester & Sanitizer:**
+  * Automatically extracts links from your designated group (e.g. `movie`), purges tracking parameters and JioSphere deeplink spam, and deduplicates directly into `link.txt`.
+* ⚡ **Zero-Browser WebSockets Architecture:**
+  * Powered by `@whiskeysockets/baileys`. Connects directly to WhatsApp's multi-device servers via raw WebSockets. Consumes **~25 MB of RAM** instead of 600MB+ consumed by Puppeteer or Selenium.
+* 🔄 **Persistent Multi-File Authentication:**
+  * Scan the QR code **once**. Encrypted session credentials are saved to `auth_info/` and survive machine reboots, WhatsApp restarts, and transient network drops.
 
 ---
 
@@ -30,58 +54,64 @@ It functions as both a **smart two-way WhatsApp AI chatbot** and a **remote cont
 
 ```mermaid
 flowchart TD
-    User["📱 WhatsApp User / Group"] -->|WhatsApp Web Protocol| Baileys["⚡ Baileys WebSocket Gateway\n(~25MB RAM, Headless)"]
+    User["📱 WhatsApp User / Group ('movie')"] -->|E2EE WebSockets| Baileys["⚡ Baileys Protocol Gateway\n(~25MB RAM, Zero Chrome)"]
     
-    subgraph HumanSafety ["🛡️ Human Emulation Engine"]
-        Baileys --> Read["1. Mark As Read (400-900ms)"]
-        Read --> Typing["2. Show 'Typing...' Presence"]
-        Typing --> Latency["3. Dynamic WPM Jitter Delay"]
+    subgraph AntiBan ["🛡️ Human Emulation Engine"]
+        Baileys --> Read["1. Mark As Read (400-900ms Delay)"]
+        Read --> Typing["2. Signal 'Typing...' Presence"]
+        Typing --> WPM["3. Dynamic Typing Latency Jitter"]
     end
     
-    subgraph Dispatcher ["🎯 Message & Command Dispatcher"]
-        Latency --> Filter{Message Type}
-        Filter -->|URL Detected| Sanitizer["🧹 Link Sanitizer & Deduplicator\n(Strips Junk, Saves to link.txt)"]
-        Filter -->|!ai / Direct Message| Ollama["🦙 Local Ollama Engine\n(llama3.2 / qwen2.5 on :11434)"]
-        Filter -->|!status / !launch / !stop| Controller["🖥️ Windows Process Controller\n(Process Watcher & Spawner)"]
+    subgraph Routing ["🎯 Message & Command Dispatcher"]
+        WPM --> Dispatcher{Message Type}
+        Dispatcher -->|URLs Detected| Sanitizer["🧹 Link Sanitizer & Deduplicator\n(Purges JioSphere, Writes to link.txt)"]
+        Dispatcher -->|!ai or Chat| DualAI["🧠 Dual-Tier AI Router"]
+        Dispatcher -->|!status / !launch / !stop| SysCtrl["💻 Windows Process Controller\n(Process Watcher & Spawner)"]
+    end
+
+    subgraph DualTierAI ["🧠 Dual AI Engine"]
+        DualAI -->|1. Try First| Ollama["🦙 Local Ollama (Port 11434)\n(llama3.2 / qwen2.5 - 100% Free & Local)"]
+        Ollama -.->|Timeout / Offline| OpenRouter["☁️ OpenRouter Cloud API\n(openrouter/free Backup)"]
     end
 
     Sanitizer --> Reply["Quoted Reply with Queue Stats"]
     Ollama --> Reply
-    Controller --> Reply
+    OpenRouter --> Reply
+    SysCtrl --> Reply
     Reply -->|Deliver to WhatsApp| User
 ```
 
 ---
 
-## 🥊 Overcoming Baileys & Unofficial Automation Drawbacks
+## 🥊 Solving Baileys & Anti-Ban Drawbacks
 
-Traditional unofficial WhatsApp bots often suffer from frequent bans, memory leaks, and protocol breaks. Here is how this repository solves each challenge:
+Developers frequently encounter bans, memory leaks, and protocol breaks with unofficial WhatsApp libraries. This repository implements production-grade mitigations:
 
-| Known Drawback | Why It Happens | How This Project Solves It |
+| Drawback / Challenge | Traditional Bot Failure | How This Repository Solves It |
 | :--- | :--- | :--- |
-| **Account Ban Risk** | Bots reply in `0ms` without presence updates or read receipts, tripping Meta's heuristic anti-bot detectors. | **Human Simulation Engine:** Simulates realistic human behavior: calls `readMessages()`, sets presence to `composing` ("typing..."), applies dynamic typing speed jitter (`1.2s - 3.5s`), and quotes messages naturally. |
-| **Heavy RAM Usage (500MB+)** | Puppeteer/Selenium solutions launch full headless Chromium instances. | **Direct WebSockets:** Uses Baileys socket protocol. Zero browser instances; idle memory footprint is just **~25 MB**. |
-| **Constant Re-Logins** | Single-file session tokens corrupt easily during abnormal terminations. | **Multi-File Auth State:** Uses `useMultiFileAuthState()` which persists granular session keys independently to disk, surviving sudden PC reboots. |
-| **Data Privacy & API Fees** | Commercial bots send your chats to third-party cloud servers. | **100% Local-First:** All model inference happens on your own hardware via local Ollama. No tokens, no cost, no data leaves your network. |
-| **Protocol Breaking Changes** | WhatsApp updates server protocols periodically. | **Graceful Auto-Reconnect & Error Handling:** Reconnects automatically on non-fatal disconnects and cleanly prompts for re-auth only when true logouts occur. |
+| **Account Ban Heuristics** | Bots reply in `0ms` without presence updates, immediately alerting Meta's heuristic anti-bot detectors. | **Human Simulation Engine:** Enforces `readMessages()` with cognitive delay, sets presence to `composing` ("typing..."), applies dynamic typing speed jitter (`1.2s - 3.5s`), and quotes messages naturally. |
+| **RAM Exhaustion (500MB+)** | Puppeteer/Selenium solutions launch full Chromium windows that hog system memory. | **Pure WebSockets:** Uses Baileys socket implementation. Zero browser instances; idle memory footprint is just **~25 MB**. |
+| **Session Desyncs & Logouts** | Single-file session JSONs corrupt during crashes, forcing repeated QR scans. | **Multi-File Auth State:** Uses `useMultiFileAuthState()` which isolates cryptographic key tokens into atomic files in `auth_info/`. |
+| **API Cost & Cloud Privacy** | Commercial bots send personal chats to external cloud APIs. | **Local-First AI:** Primary intelligence is 100% local via Ollama. No tokens, no billing, no cloud exposure unless the user enables the optional OpenRouter fallback. |
+| **Silent Failures on LLM Downtime** | If the local PC sleeps or Ollama crashes, the bot stops answering completely. | **Zero-Downtime Cloud Failover:** If Ollama doesn't answer within 7 seconds, the query is seamlessly redirected to OpenRouter (`openrouter/free`). |
 
 ---
 
-## 🕹️ Command Directory
+## 🎮 Command Directory
 
-All commands can be sent inside your designated WhatsApp group (e.g. `MOVIDE`) or in direct messages:
+All commands work directly in your designated WhatsApp group (e.g. `movie`) or in 1-on-1 direct messages:
 
-| Command | Action | Example Output |
-| :--- | :--- | :--- |
-| **`!status`** | Fetches live PC health, process state & link queue | `🤖 Tenor Agent: RUNNING 🟢`<br>`📋 Queue Size: 42 waiting`<br>`🦙 Ollama: ONLINE ⚡ (llama3.2:1b)` |
-| **`!launch`** or **`!start`** | Spawns background worker in a separate window | `🚀 Tenor Agent has been launched in a new window on your PC!` |
-| **`!stop`** | Gracefully halts the background agent process | `🛑 Tenor Agent process has been stopped on your PC.` |
-| **`!clean`** | Deduplicates and purges junk from `link.txt` | `🧹 LINK.TXT CLEANED! Removed: 14 \| Remaining: 154` |
-| **`!ai <prompt>`** | Queries local Ollama model directly | *Provides real-time local LLM answer* |
-| **`!models`** | Lists all Ollama models installed on the host PC | `🦙 Installed Models: llama3.2:1b, qwen2.5:7b, gemma2:9b` |
-| **`!model <name>`** | Switches active Ollama model on the fly | `✅ Switched active Ollama model to: qwen2.5:7b` |
-| **`!clear`** | Clears multi-turn conversation memory | `🧹 Conversation context has been cleared!` |
-| **`!help`** | Displays interactive help menu | *Full command directory* |
+| Command | Category | Action | Example Output |
+| :--- | :--- | :--- | :--- |
+| **`!status`** | System | Live diagnostic of PC health, agent states & queue size | `🤖 Tenor Agent: RUNNING 🟢`<br>`📋 Queue Size: 42 links waiting`<br>`🦙 Local Ollama: ONLINE ⚡ (llama3.2:1b)`<br>`☁️ OpenRouter: READY 🟢 (Backup active)` |
+| **`!launch`** / **`!start`** | Controller | Spawns background worker in its own Windows window | `🚀 Tenor Agent has been launched in a new window on your PC!` |
+| **`!stop`** | Controller | Halts target worker process on the host PC | `🛑 Tenor Agent process has been stopped on your PC.` |
+| **`!clean`** | File Ops | Cleans blank lines, junk & duplicates in `link.txt` | `🧹 LINK.TXT CLEANED! Removed: 14 \| Remaining: 154` |
+| **`!ai <prompt>`** | AI | Prompts local Ollama (with OpenRouter fallback) | *Provides instant, well-formatted response with provider badge* |
+| **`!models`** | AI | Lists all installed Ollama models on the PC | `🦙 Installed Models: llama3.2:1b, qwen2.5:7b, gemma2:9b` |
+| **`!model <name>`** | AI | Switches active Ollama model in real-time | `✅ Switched active Ollama model to: qwen2.5:7b` |
+| **`!clear`** | AI | Resets multi-turn conversation memory | `🧹 Conversation context has been cleared!` |
+| **`!help`** | Info | Displays interactive help menu | *Full command directory* |
 
 ---
 
@@ -89,72 +119,111 @@ All commands can be sent inside your designated WhatsApp group (e.g. `MOVIDE`) o
 
 ### 1. Prerequisites
 * **Node.js**: v18.0.0 or higher (`node -v`)
-* **Ollama**: Installed and running locally (`http://localhost:11434`)
+* **Ollama** (Optional for local AI): [Download Ollama](https://ollama.ai) and pull a model:
   ```bash
   ollama run llama3.2:1b
   ```
+* **OpenRouter API Key** (Optional for cloud fallback): Free key from [openrouter.ai](https://openrouter.ai)
 
 ### 2. Installation
-Clone the repository and install dependencies:
 ```bash
 git clone https://github.com/Hariprajwal/whatsapp-custom-agent.git
 cd whatsapp-custom-agent
 npm install
 ```
 
-### 3. Configuration
-Edit `config.js` to customize your group name or model:
+### 3. Configuration (`config.js` or `.env`)
+Add your OpenRouter key to your `.env` file (the bot automatically detects it):
+```env
+OPENROUTER_API_KEY=sk-or-v1-your-key-here
+```
+Or customize settings directly in `config.js`:
 ```javascript
 module.exports = {
-    targetGroupKeyword: 'movide', // Keyword in your WhatsApp group
+    targetGroupKeywords: ['movie', 'movide', 'movies'],
     ollama: {
         baseUrl: 'http://localhost:11434',
-        defaultModel: 'llama3.2:1b',
-        temperature: 0.7
+        defaultModel: 'llama3.2:1b'
+    },
+    openrouter: {
+        defaultModel: 'openrouter/free'
     }
 };
 ```
 
 ### 4. Running the Agent
 
-* **Option A: Full Automation & Queue Controller**
+* **Mode A: Full Automation & Link Queue Controller**
   ```bash
   npm run start
   # Or double-click LAUNCH_WHATSAPP_SYNC.bat
   ```
 
-* **Option B: Standalone General AI Chatbot**
+* **Mode B: Standalone General AI Chatbot (Multi-Turn)**
   ```bash
   npm run chat
   # Or double-click LAUNCH_WHATSAPP_AI_CHAT.bat
   ```
 
-### 5. One-Time WhatsApp Authentication
-1. On first run, a QR code will be rendered in your terminal.
+### 5. Initial QR Code Pairing
+1. On first launch, a QR code appears in your terminal.
 2. Open **WhatsApp** on your phone.
-3. Navigate to **Settings > Linked Devices > Link a Device**.
+3. Tap **Settings > Linked Devices > Link a Device**.
 4. Scan the terminal QR code.
-5. Your session credentials are saved to `auth_info/`. You will not need to scan again!
+5. Credentials persist to `auth_info/`. You will never need to scan again!
 
 ---
 
-## 📁 Repository Structure
+## 🧠 Dual-Tier AI Routing Logic
 
 ```text
-├── index.js                  # Main Agent: Link Sanitizer + Remote PC Controller + Ollama
-├── standalone_chat.js        # Standalone General AI Chatbot & Multi-turn Assistant
-├── config.js                 # Unified Configuration (Ollama, Group keywords, Safety)
-├── package.json              # Project dependencies and script shortcuts
-├── DISCLAIMER.md             # Policy, Terms of Service & Safety Guidelines
-├── LICENSE                   # MIT Open Source License
-└── auth_info/                # Local encrypted session store (Auto-generated & gitignored)
+┌──────────────────────────────────────────────┐
+│ User prompts WhatsApp: "!ai explain quantum"  │
+└───────────────────────┬──────────────────────┘
+                        │
+                        ▼
+       ┌─────────────────────────────────┐
+       │ Step 1: Probe Local Ollama API  │
+       │ (Timeout: 7000ms, Model: 3.2:1b)│
+       └────────────────┬────────────────┘
+                        │
+         ┌──────────────┴──────────────┐
+         ▼                             ▼
+    [Ollama Responds]            [Ollama Fails / Offline]
+         │                             │
+         ▼                             ▼
+  Return Local Answer          ┌───────────────────────────────────┐
+  "_(⚡ Local Ollama)_"         │ Step 2: Fallback to OpenRouter    │
+                               │ (Model: openrouter/free)          │
+                               └────────────────┬──────────────────┘
+                                                │
+                                                ▼
+                                       Return Cloud Answer
+                                       "_(☁️ OpenRouter Backup)_"
 ```
 
 ---
 
-## 🔒 Privacy & Security
-* **Authentication Security:** Session keys stored in `auth_info/` contain private cryptographic tokens. They are strictly `.gitignore`d and must **never** be shared or committed.
-* **No Telemetry:** This application makes zero network requests outside of your local network and WhatsApp's official WebSocket endpoints.
+## ❓ FAQ (Frequently Asked Questions)
+
+### Q: Does Chrome need to be open on my PC?
+**No.** This agent does not use Selenium, Puppeteer, or Chrome. It connects directly via raw WebSockets using `@whiskeysockets/baileys`. Chrome never launches and takes **zero desktop resources**.
+
+### Q: Does my phone need to stay online 24/7?
+**No.** WhatsApp Multi-Device connects your PC as an independent device. Even if your phone runs out of battery or loses internet connection, the PC agent continues running and replying normally.
+
+### Q: Can my WhatsApp account get banned?
+Unlike spam bots that message strangers at `0ms` intervals, this agent includes a **Human Emulation Engine** that sends `composing` ("typing...") presence indicators, marks messages as read with human latency, and only responds to authorized groups/commands. While any unofficial tool carries an inherent non-zero policy risk, read-only/helper bots with human emulation exhibit the lowest risk profile.
+
+### Q: How do I switch Ollama models from WhatsApp?
+Simply send `!models` in WhatsApp to view all models installed on your PC, then send `!model qwen2.5:7b` to switch the active model on the fly!
+
+---
+
+## 🤖 AI Crawler & Machine-Readable Specs
+* **AI Architecture Guide:** See [`AGENTS.md`](AGENTS.md) for full system specifications for AI coding assistants.
+* **LLM Index:** See [`llms.txt`](llms.txt) for machine-readable repository summaries.
+* **Policy & Disclaimer:** See [`DISCLAIMER.md`](DISCLAIMER.md) for legal compliance and privacy standards.
 
 ---
 
