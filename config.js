@@ -1,6 +1,6 @@
 module.exports = {
-    // WhatsApp Group / Chat Settings
-    targetGroupKeyword: 'movide',
+    // WhatsApp Group / Chat Settings (matches "movie", "movide", "movies", etc.)
+    targetGroupKeywords: ['movie', 'movide', 'movies'],
 
     // Ollama AI Settings
     ollama: {

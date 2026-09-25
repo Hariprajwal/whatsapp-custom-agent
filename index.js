@@ -14,7 +14,8 @@ const { spawn } = require('child_process');
 const ROOT_DIR = path.resolve(__dirname, '..');
 const LINK_FILE_PATH = path.join(ROOT_DIR, 'link.txt');
 const AUTH_DIR = path.resolve(__dirname, 'auth_info');
-const TARGET_GROUP_KEYWORD = 'movide';
+// Target Group Keywords (matches "movie", "movide", "movies", etc.)
+const TARGET_GROUP_KEYWORDS = ['movie', 'movide', 'movies'];
 
 // Ollama Settings
 const OLLAMA_BASE_URL = 'http://localhost:11434';
@@ -262,7 +263,7 @@ async function startWhatsAppSync() {
     console.log('       WHATSAPP AI ASSISTANT & SYNC AGENT STARTING...        ');
     console.log('=============================================================');
     console.log(`[i] Target File  : ${LINK_FILE_PATH}`);
-    console.log(`[i] Target Group : "${TARGET_GROUP_KEYWORD.toUpperCase()}" (case-insensitive)`);
+    console.log(`[i] Target Group : "${TARGET_GROUP_KEYWORDS.join(' / ').toUpperCase()}" (case-insensitive)`);
     console.log(`[i] Local Ollama : ${OLLAMA_BASE_URL} (${OLLAMA_MODEL})\n`);
 
     if (!fs.existsSync(AUTH_DIR)) {
@@ -300,7 +301,7 @@ async function startWhatsAppSync() {
         if (connection === 'open') {
             console.log('\n=============================================================');
             console.log(' [✓] WHATSAPP AI AGENT CONNECTED SUCCESSFULLY!');
-            console.log(` [✓] Group: "${TARGET_GROUP_KEYWORD.toUpperCase()}"`);
+            console.log(` [✓] Monitored Group(s): "${TARGET_GROUP_KEYWORDS.join(' / ').toUpperCase()}"`);
             console.log(' [✓] Human Simulation: Enabled (Mark Read + Typing Presence)');
             console.log(' [✓] Ready to receive links, commands (!status, !launch), & AI prompts!');
             console.log('=============================================================\n');
@@ -347,7 +348,8 @@ async function startWhatsAppSync() {
                 }
             }
 
-            if (!groupName || !groupName.toLowerCase().includes(TARGET_GROUP_KEYWORD)) {
+            const matchesGroup = TARGET_GROUP_KEYWORDS.some(kw => groupName.toLowerCase().includes(kw));
+            if (!groupName || !matchesGroup) {
                 continue;
             }
 
